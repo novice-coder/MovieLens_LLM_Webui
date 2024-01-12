@@ -2,7 +2,7 @@ import os
 import argparse
 import time
 import pickle
-import sqlite3
+import sqlite3 as db
 from sqlite3 import Error
 from datetime import datetime
 from typing import Iterator
@@ -50,7 +50,6 @@ def main():
     MAX_INPUT_TOKEN_LENGTH = int(os.getenv("MAX_INPUT_TOKEN_LENGTH", 4000))
 
     DATA_PATH = os.getenv("DATA_PATH")
-    HISTORY_PATH = os.getenv("HISTORY_PATH")
     DATABASE_NAME = os.getenv("DATABASE_NAME")
     MODEL_PATH = os.getenv("MODEL_PATH")
     assert MODEL_PATH is not None, f"MODEL_PATH is required, got: {MODEL_PATH}"
@@ -103,37 +102,41 @@ def main():
     def load_userIds() -> list:
         uids = None
         try:
-            conn = sqlite3.connect(database_path)
+            conn = db.connect(database_path)
             cur = conn.cursor()
 
-            cur.execute("SELECT uids FROM usr_prompts")
+            cur.execute("SELECT uid FROM usr_prompts")
             rows = cur.fetchall()
             uids = [row[0] for row in rows]
         except Error as e:
             logging.error("Failed to load the user prompts map.")
         finally:
+            if cur:
+                cur.close()
             if conn:
                 conn.close()
         return uids
     
     def archive_prompt_history(
-            userId: str, conn,
+            userId: str
     ) -> str:
         
         curr_date = datetime.today().strftime('%Y_%m_%d')
         timestamp = str(time.time())
         try:
+            conn = db.connect(database_path)
             cur = conn.cursor()
-            update_query = """UPDATE usr_interaction SET tstamp = ? where uid = ? AND tstamp = ?"""
-            data = (timestamp, userId, curr_date)
+            update_query = """UPDATE usr_interactions SET tstamp = ? where uid = ? AND tstamp = ?"""
+            data = [timestamp, userId, curr_date]
             cur.execute(update_query, data)
             conn.commit()
-            cur.close()
         except Error as e:
             logging.error(f"Failed archiving prompt history for user: {userId}.")
         finally:
             if cur:
                 cur.close()
+            if conn:
+                conn.close()
         
         # curr_date = datetime.today().strftime('%Y_%m_%d')
         # old_filename = f"{userId}_prompt_history_{curr_date}.txt"
@@ -153,7 +156,7 @@ def main():
 
     
     def save_prompt_history(
-            userId: str, system_prompt: str, history: list[tuple[str, str]], conn,
+            userId: str, system_prompt: str, history: list[tuple[str, str]]
     ) -> None:
         history_txt = "SYSTEM PROMPT:\n" + system_prompt
         for question, response in history:
@@ -164,17 +167,19 @@ def main():
         
         curr_date = datetime.today().strftime('%Y_%m_%d')
         try:
+            conn = db.connect(database_path)
             cur = conn.cursor()
-            update_query = """INSERT OR REPLACE INTO usr_interaction VALUES (?, ?, ?)"""
-            data = (userId, curr_date, history_txt)
+            update_query = """INSERT OR REPLACE INTO usr_interactions VALUES (?, ?, ?)"""
+            data = [userId, curr_date, history_txt]
             cur.execute(update_query, data)
             conn.commit()
-            cur.close()
         except Error as e:
             logging.error(f"Failed saving prompt history for user: {userId}.")
         finally:
             if cur:
                 cur.close()
+            if conn:
+                conn.close()
         
         # history_path = os.path.join(DATA_PATH, HISTORY_PATH)
         # try:
@@ -194,27 +199,29 @@ def main():
         #     logging.error(f"Failed saving prompt history to file for user: {userId}.")
 
     def get_usr_prompt(
-            userId: str, conn
+            userId: str
     ) -> str:
         prompt = None
         try:
+            conn = db.connect(database_path)
             cur = conn.cursor()
             update_query = """SELECT prompt FROM usr_prompts WHERE uid = ?"""
-            data = (userId)
+            data = [userId]
             cur.execute(update_query, data)
             prompt = cur.fetchone()[0]
-            conn.commit()
         except Error as e:
             logging.error(f"Failed fetching prompt for user: {userId}.")
         finally:
             if cur:
                 cur.close()
+            if conn:
+                conn.close()
         return prompt
 
     def check_userId(
-            userId: str, history: list[tuple[str, str]]
+            userId: str
     ) -> None:
-        if userId in userIds:
+        if int(userId) in userIds:
             print(userId)
         else:
             raise gr.Error(
@@ -235,10 +242,9 @@ def main():
         if max_new_tokens > MAX_MAX_NEW_TOKENS:
             raise ValueError
         try:
-            conn = sqlite3.connect(database_path)
             # headers = request.headers
             history = history_with_input[:-1]
-            final_system_prompt = get_usr_prompt(userId, conn)
+            final_system_prompt = get_usr_prompt(userId)
             generator = llama2_wrapper.run(
                 message,
                 history,
@@ -251,19 +257,16 @@ def main():
             try:
                 first_response = next(generator)
                 new_history = history + [(message, first_response)]
-                save_prompt_history(userId, final_system_prompt, new_history, conn)
+                save_prompt_history(userId, final_system_prompt, new_history)
                 yield new_history
             except StopIteration:
                 yield history + [(message, "")]
             for response in generator:
                 new_history = history + [(message, response)]
-                save_prompt_history(userId, final_system_prompt, new_history, conn)
+                save_prompt_history(userId, final_system_prompt, new_history)
                 yield new_history
         except Exception as e:
             logging.exception(e)
-        finally:
-            if conn:
-                conn.close()
 
     def check_input_token_length(
         message: str, chat_history: list[tuple[str, str]], system_prompt: str
@@ -282,7 +285,7 @@ def main():
     top_k = 50
     default_advanced_checkbox = False
     database_path = os.path.join(DATA_PATH, DATABASE_NAME)
-    userIds = load_userIds(database_path)
+    userIds = load_userIds()
 
     # #component-0 #component-1 #component-2 #component-4 #component-5 { height:71vh !important; }
     CSS = """

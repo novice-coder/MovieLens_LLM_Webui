@@ -1,5 +1,6 @@
 models
 dist
+data/webui_usrs.db
 
 .DS_Store
 .vscode

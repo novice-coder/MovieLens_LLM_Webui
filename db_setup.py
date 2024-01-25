@@ -30,6 +30,7 @@ def main():
     try:
         conn = db.connect(database_path)
         usr_prompts_df = pd.read_csv(os.path.join(DATA_PATH, 'usr_prompts.csv'))
+        # columns have to be: (uid, prompt, exptUserId) otherwise it will break
         usr_prompts_df.to_sql('usr_prompts', conn, if_exists='append', index=False)
     except Error as e:
         print(e)
@@ -44,11 +45,11 @@ def main():
     try:
         conn = db.connect(database_path)
         create_table_sql =  """CREATE TABLE IF NOT EXISTS usr_interactions (
-                                uid integer NOT NULL,
+                                exptUserId integer NOT NULL,
                                 tstamp text NOT NULL,
                                 history text,
-                                PRIMARY KEY (uid, tstamp),
-                                FOREIGN KEY (uid) REFERENCES usr_prompts (uid)
+                                PRIMARY KEY (exptUserId, tstamp),
+                                FOREIGN KEY (exptUserId) REFERENCES usr_prompts (exptUserId)
                             );"""
         cur = conn.cursor()
         cur.execute(create_table_sql)

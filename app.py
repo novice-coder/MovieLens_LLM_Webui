@@ -105,7 +105,7 @@ def main():
             conn = db.connect(database_path)
             cur = conn.cursor()
 
-            cur.execute("SELECT uid FROM usr_prompts")
+            cur.execute("SELECT exptUserId FROM usr_prompts")
             rows = cur.fetchall()
             uids = [row[0] for row in rows]
         except Error as e:
@@ -126,7 +126,7 @@ def main():
         try:
             conn = db.connect(database_path)
             cur = conn.cursor()
-            update_query = """UPDATE usr_interactions SET tstamp = ? where uid = ? AND tstamp = ?"""
+            update_query = """UPDATE usr_interactions SET tstamp = ? where exptUserId = ? AND tstamp = ?"""
             data = [timestamp, userId, curr_date]
             cur.execute(update_query, data)
             conn.commit()
@@ -205,7 +205,7 @@ def main():
         try:
             conn = db.connect(database_path)
             cur = conn.cursor()
-            update_query = """SELECT prompt FROM usr_prompts WHERE uid = ?"""
+            update_query = """SELECT prompt FROM usr_prompts WHERE exptUserId = ?"""
             data = [userId]
             cur.execute(update_query, data)
             prompt = cur.fetchone()[0]
@@ -305,7 +305,7 @@ def main():
                             max_lines=1,
                         )
                 with gr.Group():
-                    chatbot = gr.Chatbot(label="Chatbot")
+                    chatbot = gr.Chatbot(label="MovieLens")
                     with gr.Row():
                         textbox = gr.Textbox(
                             container=False,

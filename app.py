@@ -74,7 +74,17 @@ def main():
     )
 
     DESCRIPTION = """
-    # llama2-webui
+    # MovieLens Study
+    #### Instructions:
+    1: You need to enter your Experiment ID as shown in the MovieLens homepage.  
+    2: Select the appropriate scenario you are currently exploring from the drop-down below.  
+    
+    We suggest you reuse the current tab for all the scenarios, and it is **important to `clear` your conversation history before beginning a new scenario**.
+    #### Good to know:
+    - Your request may be queued to accomodate multiple users, so we request you to be patient. If you're part of a queue, your position will be indicated at the top-right corner of the "MovieLens" chatbot window shown below.
+    - The model may output erroneous text sometimes. You may ask it to re-try or ask a new question. We appreciate your patience.
+
+    Feel free to converse with the chatbot and tailor your recommendations. We hope you enjoy!
     """
     DESCRIPTION2 = """
     - Supporting models: [Llama-2-7b](https://huggingface.co/TheBloke/Llama-2-7B-Chat-GGML)/[13b](https://huggingface.co/llamaste/Llama-2-13b-chat-hf)/[70b](https://huggingface.co/llamaste/Llama-2-70b-chat-hf), [Llama-2-GPTQ](https://huggingface.co/TheBloke/Llama-2-7b-Chat-GPTQ), [Llama-2-GGML](https://huggingface.co/TheBloke/Llama-2-7B-Chat-GGML), [CodeLlama](https://huggingface.co/TheBloke/CodeLlama-7B-Instruct-GPTQ) ...
@@ -156,7 +166,7 @@ def main():
 
     
     def save_prompt_history(
-            userId: str, system_prompt: str, history: list[tuple[str, str]]
+            userId: str, scenario: str, system_prompt: str, history: list[tuple[str, str]]
     ) -> None:
         history_txt = "SYSTEM PROMPT:\n" + system_prompt
         for question, response in history:
@@ -166,11 +176,12 @@ def main():
             history_txt += "MODEL RESPONSE:\n" + response
         
         curr_date = datetime.today().strftime('%Y_%m_%d')
+        timestamp = str(time.time())
         try:
             conn = db.connect(database_path)
             cur = conn.cursor()
-            update_query = """INSERT OR REPLACE INTO usr_interactions VALUES (?, ?, ?)"""
-            data = [userId, curr_date, history_txt]
+            update_query = """INSERT OR REPLACE INTO usr_interactions VALUES (?, ?, ?, ?)"""
+            data = [userId, scenario, timestamp, history_txt]
             cur.execute(update_query, data)
             conn.commit()
         except Error as e:
@@ -227,12 +238,23 @@ def main():
             raise gr.Error(
                 f"The following userId is incorrect: ({userId}). Please enter a valid userId and try again."
             )
+    
+    def check_scenario(
+            scenario: str
+    ) -> None:
+        if scenario in scenarios:
+            print(scenario)
+        else:
+            raise gr.Error(
+                f"Please select a scenario and try again."
+            )
 
     def generate(
         message: str,
         history_with_input: list[tuple[str, str]],
         system_prompt: str,
         userId: str,
+        scenario: str,
         max_new_tokens: int,
         temperature: float,
         top_p: float,
@@ -242,6 +264,7 @@ def main():
         if max_new_tokens > MAX_MAX_NEW_TOKENS:
             raise ValueError
         try:
+            new_history = None
             # headers = request.headers
             history = history_with_input[:-1]
             final_system_prompt = get_usr_prompt(userId)
@@ -257,14 +280,13 @@ def main():
             try:
                 first_response = next(generator)
                 new_history = history + [(message, first_response)]
-                save_prompt_history(userId, final_system_prompt, new_history)
                 yield new_history
             except StopIteration:
                 yield history + [(message, "")]
             for response in generator:
                 new_history = history + [(message, response)]
-                save_prompt_history(userId, final_system_prompt, new_history)
                 yield new_history
+            save_prompt_history(userId, scenario, final_system_prompt, new_history)
         except Exception as e:
             logging.exception(e)
 
@@ -286,6 +308,7 @@ def main():
     default_advanced_checkbox = False
     database_path = os.path.join(DATA_PATH, DATABASE_NAME)
     userIds = load_userIds()
+    scenarios = ["Birthday with Friends/Family", "Long drive", "Un-popular/Niche"]
 
     # #component-0 #component-1 #component-2 #component-4 #component-5 { height:71vh !important; }
     CSS = """
@@ -299,10 +322,16 @@ def main():
                 gr.Markdown(DESCRIPTION)
                 with gr.Row():
                         userId = gr.Textbox(
-                            label="User Id",
+                            label="Experiment ID",
                             show_label=True,
-                            placeholder="Enter your MovieLens User ID...",
+                            placeholder="Type your Experiment ID...",
                             max_lines=1,
+                        )
+                        scenario = gr.Dropdown(
+                            label="Scenario",
+                            show_label=True,
+                            choices=scenarios,
+                            value=None,
                         )
                 with gr.Group():
                     chatbot = gr.Chatbot(label="MovieLens")
@@ -376,6 +405,11 @@ def main():
             inputs=[userId],
             api_name=False,
             queue=False,
+        ).then(
+            fn=check_scenario,
+            inputs=[scenario],
+            api_name=False,
+            queue=False,
         ).success(
             fn=generate,
             inputs=[
@@ -383,6 +417,7 @@ def main():
                 chatbot,
                 system_prompt,
                 userId,
+                scenario,
                 max_new_tokens,
                 temperature,
                 top_p,
@@ -417,6 +452,11 @@ def main():
                 inputs=[userId],
                 api_name=False,
                 queue=False,
+            ).then(
+                fn=check_scenario,
+                inputs=[scenario],
+                api_name=False,
+                queue=False,
             ).success(
                 fn=generate,
                 inputs=[
@@ -424,6 +464,7 @@ def main():
                     chatbot,
                     system_prompt,
                     userId,
+                    scenario,
                     max_new_tokens,
                     temperature,
                     top_p,
@@ -452,12 +493,18 @@ def main():
             api_name=False,
             queue=False,
         ).then(
+            fn=check_scenario,
+            inputs=[scenario],
+            api_name=False,
+            queue=False,
+        ).then(
             fn=generate,
             inputs=[
                 saved_input,
                 chatbot,
                 system_prompt,
                 userId,
+                scenario,
                 max_new_tokens,
                 temperature,
                 top_p,
@@ -482,11 +529,6 @@ def main():
         )
 
         clear_button.click(
-            fn=archive_prompt_history,
-            inputs=userId,
-            api_name=False,
-            queue=False,
-        ).then(
             fn=lambda: ([], ""),
             outputs=[chatbot, saved_input],
             queue=False,

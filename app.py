@@ -79,7 +79,9 @@ def main():
     1: You need to enter your Experiment ID as shown in the MovieLens homepage.  
     2: Select the appropriate scenario you are currently exploring from the drop-down below.  
     
-    We suggest you reuse the current tab for all the scenarios, and it is **important to `clear` your conversation history before beginning a new scenario**.
+    We suggest you reuse the current tab for all the scenarios, and it is **important** to:  
+    1: **`clear` your conversation history before beginning a new scenario**.  
+    2: **Do not change the scenario drop-down until you are completely done with it **  
     #### Good to know:
     - Your request may be queued to accomodate multiple users, so we request you to be patient. If you're part of a queue, your position will be indicated at the top-right corner of the "MovieLens" chatbot window shown below.
     - The model may output erroneous text sometimes. You may ask it to re-try or ask a new question. We appreciate your patience.

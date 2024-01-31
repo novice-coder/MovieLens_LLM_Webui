@@ -46,6 +46,7 @@ def main():
         conn = db.connect(database_path)
         create_table_sql =  """CREATE TABLE IF NOT EXISTS usr_interactions (
                                 exptUserId integer NOT NULL,
+                                scenario text NOT NULL,
                                 tstamp text NOT NULL,
                                 history text,
                                 PRIMARY KEY (exptUserId, tstamp),

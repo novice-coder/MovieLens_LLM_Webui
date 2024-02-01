@@ -78,6 +78,7 @@ def main():
     #### Instructions:
     1: You need to enter your Experiment ID as shown in the MovieLens homepage.  
     2: Select the appropriate scenario you are currently exploring from the drop-down below.  
+    3: Start using the chatbot: Say something like, "Can you recommend some movies to watch with my friends?"
     
     We suggest you reuse the current tab for all the scenarios, and it is **important** to:  
     1: **`clear` your conversation history before beginning a new scenario**.  
@@ -341,7 +342,7 @@ def main():
                         textbox = gr.Textbox(
                             container=False,
                             show_label=False,
-                            placeholder="Type a message...",
+                            placeholder="Say something like: Can you recommend some movies to watch with my friends?",
                             scale=10,
                         )
                         submit_button = gr.Button(

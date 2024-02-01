@@ -81,7 +81,7 @@ def main():
     
     We suggest you reuse the current tab for all the scenarios, and it is **important** to:  
     1: **`clear` your conversation history before beginning a new scenario**.  
-    2: **Do not change the scenario drop-down until you are completely done with it **  
+    2: **Do not change the scenario drop-down until you are completely done with it**  
     #### Good to know:
     - Your request may be queued to accomodate multiple users, so we request you to be patient. If you're part of a queue, your position will be indicated at the top-right corner of the "MovieLens" chatbot window shown below.
     - The model may output erroneous text sometimes. You may ask it to re-try or ask a new question. We appreciate your patience.
